@@ -4,6 +4,7 @@
 #include "GlobalNamespace/BeatmapObjectManager.hpp"
 #include "GlobalNamespace/IAudioTimeSource.hpp"
 #include "UnityEngine/GameObject.hpp"
+#include "UnityEngine/SceneManagement/Scene.hpp"
 #include "GlobalNamespace/IReadonlyBeatmapData.hpp"
 #include "beatsaber-hook/shared/rapidjson/include/rapidjson/rapidjson.h"
 #include "beatsaber-hook/shared/rapidjson/include/rapidjson/document.h"
@@ -13,19 +14,7 @@
 
 using namespace GlobalNamespace;
 using namespace UnityEngine;
-
-Array<Il2CppString*>* GetCSStrArray(rapidjson::Value val)
-{
-    Array<Il2CppString*>* csArr;
-    rapidjson::GenericArray arr = val.GetArray();
-    csArr = Array<Il2CppString*>::NewLength((int)arr.Size());
-    for(int i = 0; i < arr.Size(); i++)
-    {
-        std::string strVal = val.GetString();
-        csArr->values[i] = il2cpp_utils::createcsstr(strVal);
-    }
-    return csArr;
-}
+using namespace UnityEngine::SceneManagement;
 
 //https://github.com/Aeroluna/Chroma/blob/ebc91c9fa672304ffe5cbf64b31293f56e262159/Chroma/ChromaController.cs#L106
 void Start(BeatmapObjectSpawnController* beatmapObjectSpawnController)
@@ -41,19 +30,38 @@ void Start(BeatmapObjectSpawnController* beatmapObjectSpawnController)
     if(customBeatmap->customData)
     {
         rapidjson::Value &customData = *customBeatmap->customData->value;
-        
-        Array<Il2CppString*>* ObjectsToKill = GetCSStrArray(customData["_environmentRemoval"].GetObject());
-        if(ObjectsToKill != nullptr)
+        rapidjson::GenericArray<false, rapidjson::Value> arr = customData["_environmentRemoval"].GetArray();
+        std::vector<std::string> ObjectsToKill;
+        for (int i = 0; i < arr.Size(); i++)
         {
-            for (size_t i = 0; i < ObjectsToKill->Length(); i++)
+            ObjectsToKill[i] = arr[i].GetString();
+        }
+        
+        if(ObjectsToKill.size() > 0)
+        {
+            for (int i = 0; i < ObjectsToKill.size(); i++)
             {
-                std::string s = to_utf8(csstrtostr(ObjectsToKill->values[i]));
-                if(s != "BigTrackLaneRing" || s != "TrackLaneRing")//Lazy Lol will add later
+                std::string s = ObjectsToKill[i];
+                Il2CppString* css = il2cpp_utils::createcsstr(s);
+                GameObject* n = GameObject::Find(css);
+                if(s == "BigTrackLaneRing" || s == "TrackLaneRing")
                 {
-                    GameObject::Find(ObjectsToKill->values[i])->SetActive(false);
+                    //Fuck this piece of absolute dog shit vomit trash
+                    if(s == "TrackLaneRing" && ((System::String*)n->get_name())->Contains(il2cpp_utils::createcsstr("Big")))
+                    {
+                        continue;
+                    }
+                    n->SetActive(false);
+                }
+                else
+                {
+                    //this hurts in so many different ways that i cant explain
+                    if(((System::String*)n->get_name())->Contains(il2cpp_utils::createcsstr("Environment")) && (!((System::String*)n->get_scene().get_name())->Contains(il2cpp_utils::createcsstr("Menu"))))
+                    {
+                        n->SetActive(false);
+                    }
                 }
             }
-                
         }
     }
 }
@@ -64,5 +72,5 @@ MAKE_HOOK_OFFSETLESS(BeatmapObjectSpawnControllerStart, void, BeatmapObjectSpawn
 }
 
 void NoodleExtensions::InstallBeatmapObjectSpawnControllerHooks() {
-	//INSTALL_HOOK_OFFSETLESS(BeatmapObjectSpawnControllerStart, il2cpp_utils::FindMethodUnsafe("", "BeatmapObjectSpawnController", "Start", 0));
+	INSTALL_HOOK_OFFSETLESS(BeatmapObjectSpawnControllerStart, il2cpp_utils::FindMethodUnsafe("", "BeatmapObjectSpawnController", "Start", 0));
 }
