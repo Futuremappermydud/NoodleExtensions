@@ -11,6 +11,7 @@ void InstallObstacleControllerHooks();
 // Fake notes
 void InstallGameNoteControllerHooks();
 void InstallBombNoteControllerHooks();
+void InstallBeatmapObjectSpawnControllerHooks();
 
 void InstallHooks();
 
